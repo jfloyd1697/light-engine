@@ -1,0 +1,2 @@
+/usr/bin/ar qc liblight_core.a CMakeFiles/light_core.dir/src/Canvas2D.cpp.o CMakeFiles/light_core.dir/src/Color.cpp.o CMakeFiles/light_core.dir/src/Layout.cpp.o CMakeFiles/light_core.dir/src/LightEngine.cpp.o CMakeFiles/light_core.dir/src/Rasterizer.cpp.o CMakeFiles/light_core.dir/src/effects/PulseBlobEffect.cpp.o CMakeFiles/light_core.dir/src/effects/StripeScrollEffect.cpp.o
+/usr/bin/ranlib liblight_core.a

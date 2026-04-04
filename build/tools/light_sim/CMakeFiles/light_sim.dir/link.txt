@@ -1,0 +1,1 @@
+/usr/bin/c++ -Wl,--dependency-file=CMakeFiles/light_sim.dir/link.d CMakeFiles/light_sim.dir/src/main.cpp.o -o light_sim  ../../lib/light_core/liblight_core.a

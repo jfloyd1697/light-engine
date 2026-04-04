@@ -1,0 +1,8 @@
+/mnt/data/light_project/build/CMakeFiles/edit_cache.dir
+/mnt/data/light_project/build/CMakeFiles/rebuild_cache.dir
+/mnt/data/light_project/build/lib/light_core/CMakeFiles/light_core.dir
+/mnt/data/light_project/build/lib/light_core/CMakeFiles/edit_cache.dir
+/mnt/data/light_project/build/lib/light_core/CMakeFiles/rebuild_cache.dir
+/mnt/data/light_project/build/tools/light_sim/CMakeFiles/light_sim.dir
+/mnt/data/light_project/build/tools/light_sim/CMakeFiles/edit_cache.dir
+/mnt/data/light_project/build/tools/light_sim/CMakeFiles/rebuild_cache.dir
