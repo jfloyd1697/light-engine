@@ -1,36 +1,42 @@
 #pragma once
-
-#include <memory>
-#include <vector>
-
-#include "light/ILightField2D.h"
-#include "light/Layout.h"
+#include <stddef.h>
+#include <stdint.h>
+#include "Color.h"
+#include "ILightField2D.h"
+#include "Layout.h"
 
 namespace light {
 
-class LightEngine {
-public:
-    enum class Mode {
-        ManualField,
-        Animation
-    };
-
-    explicit LightEngine(Layout layout);
-
-    void setMode(Mode mode) noexcept { m_mode = mode; }
-    void setManualField(std::shared_ptr<ILightField2D> field);
-    void setAnimationField(std::shared_ptr<ILightField2D> field);
-
-    std::vector<Rgb> renderLeds(uint32_t nowMs) const;
-    Layout layout() const { return m_layout; }
-
-private:
-    const ILightField2D* activeField() const;
-
-    Mode m_mode{Mode::Animation};
-    Layout m_layout;
-    std::shared_ptr<ILightField2D> m_manualField;
-    std::shared_ptr<ILightField2D> m_animationField;
+enum class EngineMode {
+    Animation,
+    Manual
 };
 
-} // namespace light
+class LightEngine {
+public:
+    static constexpr size_t kMaxPixels = 16;
+
+    LightEngine();
+
+    void setLayout(LayoutView layout);
+    void setAnimationField(const ILightField2D* field);
+    void setMode(EngineMode mode);
+
+    void setManualPixel(size_t index, Rgb color);
+    void clearManual();
+
+    void render(uint32_t nowMs);
+
+    const Rgb* pixels() const { return m_pixels; }
+    size_t pixelCount() const { return m_count; }
+
+private:
+    LayoutView m_layout{};
+    const ILightField2D* m_animField = nullptr;
+    EngineMode m_mode = EngineMode::Animation;
+    Rgb m_pixels[kMaxPixels]{};
+    Rgb m_manual[kMaxPixels]{};
+    size_t m_count = 0;
+};
+
+}

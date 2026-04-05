@@ -1,36 +1,49 @@
 #include "light/LightEngine.h"
 
-#include "light/Rasterizer.h"
-
 namespace light {
 
-LightEngine::LightEngine(Layout layout)
-    : m_layout(std::move(layout)) {
+LightEngine::LightEngine() = default;
+
+void LightEngine::setLayout(LayoutView layout) {
+    m_layout = layout;
+    m_count = (layout.count > kMaxPixels) ? kMaxPixels : layout.count;
 }
 
-void LightEngine::setManualField(std::shared_ptr<ILightField2D> field) {
-    m_manualField = std::move(field);
+void LightEngine::setAnimationField(const ILightField2D* field) {
+    m_animField = field;
 }
 
-void LightEngine::setAnimationField(std::shared_ptr<ILightField2D> field) {
-    m_animationField = std::move(field);
+void LightEngine::setMode(EngineMode mode) {
+    m_mode = mode;
 }
 
-const ILightField2D* LightEngine::activeField() const {
-    switch (m_mode) {
-        case Mode::ManualField:
-            return m_manualField.get();
-        case Mode::Animation:
-            return m_animationField.get();
+void LightEngine::setManualPixel(size_t index, Rgb color) {
+    if (index >= kMaxPixels) return;
+    m_manual[index] = color;
+}
+
+void LightEngine::clearManual() {
+    for (size_t i = 0; i < kMaxPixels; ++i) {
+        m_manual[i] = {};
     }
-    return nullptr;
 }
 
-std::vector<Rgb> LightEngine::renderLeds(uint32_t nowMs) const {
-    if (const auto* field = activeField()) {
-        return sampleLayout(*field, m_layout, nowMs);
+void LightEngine::render(uint32_t nowMs) {
+    if (m_mode == EngineMode::Manual) {
+        for (size_t i = 0; i < m_count; ++i) {
+            m_pixels[i] = m_manual[i];
+        }
+        return;
     }
-    return std::vector<Rgb>(m_layout.size(), {0, 0, 0});
+
+    for (size_t i = 0; i < m_count; ++i) {
+        if (!m_animField) {
+            m_pixels[i] = {};
+            continue;
+        }
+        const auto& p = m_layout.points[i];
+        m_pixels[i] = scale(m_animField->sample(p.u, p.v, nowMs), p.brightnessScale);
+    }
 }
 
-} // namespace light
+}

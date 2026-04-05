@@ -4,10 +4,10 @@
 #include <stdint.h>
 
 // Example future includes:
-// #include <Adafruit_CircuitPlayground.h>
-// #include "CircuitPlaygroundOutput.h"
-// #include "SerialProtocol.h"
-// #include "light/LightEngine.h"
+#include <Adafruit_CircuitPlayground.h>
+#include "CircuitPlaygroundOutput.h"
+#include "SerialProtocol.h"
+#include "light/LightEngine.h"
 
 namespace {
 
@@ -20,8 +20,8 @@ uint32_t nowMs() {
 
 void setup() {
     // Future work:
-    // Serial.begin(115200);
-    // CircuitPlayground.begin();
+    Serial.begin(115200);
+    CircuitPlayground.begin();
     // initialize light engine, layout, and default animation
 }
 
