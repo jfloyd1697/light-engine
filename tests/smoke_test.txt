@@ -1,0 +1,1 @@
+Build the project and run the console demo. You should see non-zero LED values for idle, fire, reload, and charge events.
