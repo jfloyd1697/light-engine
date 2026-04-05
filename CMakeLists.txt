@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(light_shared_project LANGUAGES CXX)
+project(light-engine LANGUAGES CXX)
 
 option(LIGHT_BUILD_DESKTOP "Build desktop simulator" ON)
 
