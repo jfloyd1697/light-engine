@@ -5,36 +5,36 @@ namespace light {
 
 class PulseBlobEffect : public ILightField2D {
 public:
-    float centerU = 0.5f;
-    float centerV = 0.5f;
-    float radius = 0.22f;
-    float pulseHz = 1.2f;
-    Rgb color{255, 80, 20};
+    float centerU;
+    float centerV;
+    float radius;
+    float pulseHz;
+    Rgb color;
+
+    PulseBlobEffect()
+        : centerU(0.5f),
+          centerV(0.5f),
+          radius(0.22f),
+          pulseHz(1.2f),
+          color(255, 80, 20) {}
 
     Rgb sample(float u, float v, uint32_t nowMs) const override;
 };
 
 class StripeFieldEffect : public ILightField2D {
 public:
-    float scrollHz = 0.4f;
-    float stripeWidth = 0.14f;
-    Rgb colorA{0, 0, 80};
-    Rgb colorB{0, 80, 255};
+    float scrollHz;
+    float stripeWidth;
+    Rgb colorA;
+    Rgb colorB;
+
+    StripeFieldEffect()
+        : scrollHz(0.4f),
+          stripeWidth(0.14f),
+          colorA(0, 0, 80),
+          colorB(0, 80, 255) {}
 
     Rgb sample(float u, float v, uint32_t nowMs) const override;
 };
 
-class FlashFieldEffect : public ILightField2D {
-public:
-    float centerU = 0.85f;
-    float centerV = 0.5f;
-    float radius = 0.25f;
-    uint32_t triggerMs = 0;
-    uint16_t decayMs = 180;
-    Rgb color{255, 220, 120};
-
-    void trigger(uint32_t nowMs);
-    Rgb sample(float u, float v, uint32_t nowMs) const override;
-};
-
-}
+} // namespace light

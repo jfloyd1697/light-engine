@@ -1,4 +1,4 @@
-.pio
-.idea
 /build/
-/cmake-build-debug/
+.pio/
+.vscode/
+.idea/

@@ -1,14 +1,41 @@
 cmake_minimum_required(VERSION 3.20)
-project(light_project LANGUAGES CXX)
+project(light_shared_project LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
+option(LIGHT_BUILD_DESKTOP "Build desktop simulator" ON)
 
-option(LIGHT_BUILD_SIM "Build the PC simulator" ON)
+add_library(light_core
+        lib/light_core/src/LightEngine.cpp
+        lib/light_core/src/Layout.cpp
+        lib/light_core/src/Effects.cpp
+)
 
-add_subdirectory(lib/light_core)
+target_include_directories(light_core PUBLIC
+        lib/light_core/include
+)
 
-if(LIGHT_BUILD_SIM)
-    add_subdirectory(tools/light_sim)
+target_compile_features(light_core PUBLIC cxx_std_17)
+
+if(LIGHT_BUILD_DESKTOP)
+    find_package(SDL2 REQUIRED)
+    find_package(SDL2_ttf REQUIRED)
+
+    add_executable(desktop_light_sim
+            tools/desktop_sim/src/main.cpp
+    )
+
+    target_link_libraries(desktop_light_sim PRIVATE
+            light_core
+            SDL2::SDL2main
+            SDL2::SDL2
+            SDL2_ttf::SDL2_ttf
+    )
+
+    add_custom_command(TARGET desktop_light_sim POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "C:/msys64/ucrt64/bin/SDL2.dll"
+            "$<TARGET_FILE_DIR:desktop_light_sim>"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "C:/msys64/ucrt64/bin/SDL2_ttf.dll"
+            "$<TARGET_FILE_DIR:desktop_light_sim>"
+    )
 endif()

@@ -21,7 +21,7 @@ Rgb PulseBlobEffect::sample(float u, float v, uint32_t nowMs) const {
     falloff = clamp01(falloff);
     falloff *= falloff;
 
-    const float intensity = clamp01(0.08f + pulse * falloff);
+    const float intensity = clamp01(0.15f + pulse * falloff);
     return scale(color, intensity);
 }
 
@@ -35,26 +35,4 @@ Rgb StripeFieldEffect::sample(float u, float, uint32_t nowMs) const {
     return (local < stripeWidth) ? colorA : colorB;
 }
 
-void FlashFieldEffect::trigger(uint32_t nowMs) {
-    triggerMs = nowMs;
-}
-
-Rgb FlashFieldEffect::sample(float u, float v, uint32_t nowMs) const {
-    const uint32_t dt = nowMs - triggerMs;
-    if (dt > decayMs) {
-        return {};
-    }
-
-    const float du = u - centerU;
-    const float dv = v - centerV;
-    const float dist = sqrtf(du * du + dv * dv);
-    float radial = 1.0f - (dist / radius);
-    radial = clamp01(radial);
-    radial *= radial;
-
-    const float timeFalloff = 1.0f - (static_cast<float>(dt) / static_cast<float>(decayMs));
-    const float intensity = clamp01(radial * timeFalloff);
-    return scale(color, intensity);
-}
-
-}
+} // namespace light
