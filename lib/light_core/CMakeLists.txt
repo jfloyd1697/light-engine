@@ -1,10 +1,8 @@
 add_library(light_core
-    src/Canvas2D.cpp
-    src/Color.cpp
+        src/Color.cpp
     src/Layout.cpp
     src/LightEngine.cpp
-    src/Rasterizer.cpp
-    src/effects/PulseBlobEffect.cpp
+        src/effects/PulseBlobEffect.cpp
     src/effects/StripeScrollEffect.cpp
 )
 

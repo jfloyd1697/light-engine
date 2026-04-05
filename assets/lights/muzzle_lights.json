@@ -1,0 +1,136 @@
+{
+  "version": 1,
+  "layout": "muzzle_ring_10",
+  "palette": {
+    "idle_blue": [0, 40, 180],
+    "flash_hot": [255, 220, 120],
+    "flash_warm": [255, 100, 20],
+    "charge_magenta": [255, 40, 220],
+    "warning_red": [255, 0, 0],
+    "overheat_orange": [255, 80, 0]
+  },
+  "animations": {
+    "idle_ember": {
+      "kind": "pulse",
+      "target": "all",
+      "color": "idle_blue",
+      "min_intensity": 0.05,
+      "max_intensity": 0.20,
+      "period_ms": 1800,
+      "waveform": "sine"
+    },
+    "single_fire": {
+      "kind": "sequence",
+      "steps": [
+        { "kind": "fill", "target": "all", "color": "flash_hot", "intensity": 1.0, "duration_ms": 25 },
+        { "kind": "fill", "target": "all", "color": "flash_warm", "intensity": 0.8, "duration_ms": 45 },
+        { "kind": "fade_out", "target": "all", "duration_ms": 90 }
+      ]
+    },
+    "burst_fire": {
+      "kind": "repeat",
+      "count": 3,
+      "gap_ms": 35,
+      "item": {
+        "kind": "sequence",
+        "steps": [
+          { "kind": "fill", "target": "all", "color": "flash_hot", "intensity": 1.0, "duration_ms": 20 },
+          { "kind": "fade_out", "target": "all", "duration_ms": 40 }
+        ]
+      }
+    },
+    "charge_build": {
+      "kind": "pulse",
+      "target": "all",
+      "color": "charge_magenta",
+      "min_intensity": 0.12,
+      "max_intensity": 0.95,
+      "period_ms": 550,
+      "waveform": "sine"
+    },
+    "charged_shot": {
+      "kind": "sequence",
+      "steps": [
+        { "kind": "fill", "target": "all", "color": "flash_hot", "intensity": 1.0, "duration_ms": 40 },
+        { "kind": "fill", "target": "all", "color": "charge_magenta", "intensity": 0.9, "duration_ms": 35 },
+        { "kind": "fade_out", "target": "all", "duration_ms": 160 }
+      ]
+    },
+    "reload_spin": {
+      "kind": "chase",
+      "target": "ring",
+      "color": "idle_blue",
+      "segment_length": 2,
+      "step_ms": 80
+    },
+    "overheat_flicker": {
+      "kind": "flicker",
+      "target": "all",
+      "color": "overheat_orange",
+      "min_intensity": 0.20,
+      "max_intensity": 1.0,
+      "update_ms": 45
+    },
+    "empty_click": {
+      "kind": "sequence",
+      "steps": [
+        { "kind": "fill", "target": "all", "color": "warning_red", "intensity": 0.30, "duration_ms": 30 },
+        { "kind": "off", "target": "all", "duration_ms": 35 },
+        { "kind": "fill", "target": "all", "color": "warning_red", "intensity": 0.18, "duration_ms": 25 },
+        { "kind": "off", "target": "all", "duration_ms": 40 }
+      ]
+    }
+  },
+  "events": {
+    "idle": {
+      "actions": [
+        { "op": "play_animation", "name": "idle_ember", "loop": true, "layer": "base", "blend": "replace" }
+      ]
+    },
+    "fire": {
+      "actions": [
+        { "op": "stop_layer", "layer": "flash" },
+        { "op": "play_animation", "name": "single_fire", "loop": false, "layer": "flash", "blend": "add" }
+      ]
+    },
+    "burst_fire": {
+      "actions": [
+        { "op": "stop_layer", "layer": "flash" },
+        { "op": "play_animation", "name": "burst_fire", "loop": false, "layer": "flash", "blend": "add" }
+      ]
+    },
+    "charge_start": {
+      "actions": [
+        { "op": "play_animation", "name": "charge_build", "loop": true, "layer": "charge", "blend": "add" }
+      ]
+    },
+    "charge_release": {
+      "actions": [
+        { "op": "stop_layer", "layer": "charge" },
+        { "op": "play_animation", "name": "charged_shot", "loop": false, "layer": "flash", "blend": "add" }
+      ]
+    },
+    "reload_start": {
+      "actions": [
+        { "op": "play_animation", "name": "reload_spin", "loop": true, "layer": "utility", "blend": "replace" }
+      ]
+    },
+    "reload_complete": {
+      "actions": [
+        { "op": "stop_layer", "layer": "utility" },
+        { "op": "play_animation", "name": "idle_ember", "loop": true, "layer": "base", "blend": "replace" }
+      ]
+    },
+    "overheat": {
+      "actions": [
+        { "op": "stop_all" },
+        { "op": "play_animation", "name": "overheat_flicker", "loop": true, "layer": "alert", "blend": "replace" }
+      ]
+    },
+    "empty": {
+      "actions": [
+        { "op": "play_animation", "name": "empty_click", "loop": false, "layer": "flash", "blend": "add" }
+      ]
+    }
+  }
+}

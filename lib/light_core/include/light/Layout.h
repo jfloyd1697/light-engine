@@ -10,9 +10,7 @@ struct LedPoint {
     float v;
     float brightnessScale;
 
-    LedPoint()
-        : index(0), u(0.0f), v(0.0f), brightnessScale(1.0f) {}
-
+    LedPoint() : index(0), u(0.0f), v(0.0f), brightnessScale(1.0f) {}
     LedPoint(uint16_t idx, float uu, float vv, float scale)
         : index(idx), u(uu), v(vv), brightnessScale(scale) {}
 };
@@ -27,4 +25,4 @@ struct LayoutView {
 
 LayoutView circuitPlaygroundRingLayout();
 
-} // namespace light
+}

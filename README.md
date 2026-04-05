@@ -1,86 +1,59 @@
-# Shared Light Engine Project
+# Light Profile Project
 
-This project contains:
+This project includes:
+- a JSON light profile for a muzzle-only LED ring
+- a minimal JSON parser with no external dependency
+- a `LightProfileLoader`
+- a `LightAnimator` that evaluates the JSON animation kinds into canvas + LED output
+- a `LightController` that triggers light events the same way audio events would be triggered
+- a console demo that prints the resulting LED values over time
 
-- `lib/light_core`: shared C++ light engine used by both desktop and firmware
-- `tools/desktop_sim`: desktop SDL2 simulator with keyboard-triggered animations
-- `src/main.cpp`: PlatformIO firmware entry for Adafruit Circuit Playground Classic
-- `lib/cpx_adapter`: firmware-specific NeoPixel and serial adapter
+## Included animation kinds
+- `fill`
+- `off`
+- `fade_out`
+- `pulse`
+- `flicker`
+- `chase`
+- `sequence`
+- `repeat`
 
-## Desktop simulator
+## Included action ops
+- `play_animation`
+- `stop_layer`
+- `stop_all`
 
-Requirements:
-- CMake 3.20+
-- SDL2 development package
-- C++17 compiler
-
-Build:
+## Build
 
 ```bash
-cmake -S . -B build -DLIGHT_BUILD_DESKTOP=ON
+cmake -S . -B build
 cmake --build build
 ```
 
-Run:
+## Run
 
 ```bash
-./build/desktop_light_sim
+./build/light_console_demo
 ```
 
-### Keyboard controls
-
-- `1` Idle
-- `2` Fire
-- `3` Reload
-- `4` Hit
-- `5` Charge start
-- `6` Charge stop
-- `M` Manual mode
-- `A` Animation mode
-- `C` Clear manual LEDs
-- Arrow keys move the cursor / hotspot
-- `Space` trigger fire
-- `Esc` quit
-
-## Firmware (PlatformIO)
-
-Board target is Circuit Playground Classic.
-
-Build:
-
-```bash
-pio run
-```
-
-Upload:
-
-```bash
-pio run -t upload
-```
-
-Monitor:
-
-```bash
-pio device monitor -b 115200
-```
-
-### Serial commands
-
-- `PING`
-- `MODE ANIM`
-- `MODE MANUAL`
-- `TRIGGER IDLE`
-- `TRIGGER FIRE`
-- `TRIGGER RELOAD`
-- `TRIGGER HIT`
-- `TRIGGER CHARGE_START`
-- `TRIGGER CHARGE_STOP`
-- `CURSOR 0.5 0.5`
-- `SET_PIXEL 0 255 0 0`
-- `CLEAR`
+On Windows with a multi-config generator, the executable may be under a configuration subfolder.
 
 ## Notes
 
-- The shared engine keeps a small RGB canvas for the desktop build and samples LED positions from that canvas.
-- The Circuit Playground Classic only has 10 onboard NeoPixels and very limited RAM, so the current default canvas is intentionally modest.
-- The desktop simulator and firmware use the same event and rendering logic from `light_core`.
+The evaluator is intentionally compact. It is meant as a clean first pass for event-driven muzzle animations.
+It does not yet include:
+- alpha compositing beyond simple additive/replace behavior
+- a separate region/mask database
+- serialization back out to JSON
+- a GUI editor
+
+## Integration
+
+Your runtime flow can look like this:
+
+```cpp
+lightController.trigger("fire", nowMs);
+audioController.trigger("fire", nowMs);
+```
+
+That keeps light and audio event handling parallel.

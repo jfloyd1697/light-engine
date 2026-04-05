@@ -1,63 +1,36 @@
 #include <SDL.h>
 #include <SDL_ttf.h>
 
-#include <cmath>
 #include <cstdio>
 #include <string>
 #include <vector>
 
+#include "light/LightController.h"
+#include "light/LightProfileLoader.h"
 #include "light/LightEngine.h"
 #include "light/Layout.h"
 
 namespace {
 
 constexpr int kWindowWidth = 1000;
-constexpr int kWindowHeight = 700;
+constexpr int kWindowHeight = 820;
 
 constexpr int kCanvasX = 30;
 constexpr int kCanvasY = 30;
-constexpr int kCanvasW = 640;
-constexpr int kCanvasH = 480;
-
-constexpr int kLedPanelX = 720;
-constexpr int kLedPanelY = 40;
-constexpr int kLedRadius = 18;
+constexpr int kCanvasSize = 640;
+constexpr int kCanvasW = kCanvasSize;
+constexpr int kCanvasH = kCanvasSize;
 
 const char* kFontPath = "C:/Windows/Fonts/consola.ttf";
 
 struct AppState {
     bool running = true;
     bool showHelp = true;
-    bool manualMode = false;
-    float cursorU = 0.5f;
-    float cursorV = 0.5f;
-    std::string currentEvent = "Idle";
+    std::string currentEvent = "idle";
 };
 
-static void setColor(SDL_Renderer* r, const light::Rgb& c) {
-    SDL_SetRenderDrawColor(r, c.r, c.g, c.b, 255);
-}
-
-static light::Rgb sampleCanvasColor(float u, float v, const light::LightEngine& engine, uint32_t nowMs) {
-    // Reuse the engine's active rendered LED colors only for LED view.
-    // For the canvas, create a simple visualization matching current event feel.
-    // This keeps the overlay work independent of deeper engine internals.
-    (void)engine;
-
-    const float du = u - 0.5f;
-    const float dv = v - 0.5f;
-    const float dist = std::sqrt(du * du + dv * dv);
-    const float pulse = 0.5f + 0.5f * std::sin(nowMs / 250.0f);
-
-    float strength = 1.0f - dist * 1.6f;
-    if (strength < 0.0f) strength = 0.0f;
-    strength *= (0.4f + 0.6f * pulse);
-
-    return light::Rgb(
-        static_cast<uint8_t>(30 + 120 * strength),
-        static_cast<uint8_t>(20 + 60 * strength),
-        static_cast<uint8_t>(40 + 180 * strength)
-    );
+static void setColor(SDL_Renderer* renderer, const light::Rgb& c) {
+    SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, 255);
 }
 
 static SDL_Texture* makeText(SDL_Renderer* renderer, TTF_Font* font, const std::string& text, SDL_Color color, int& w, int& h) {
@@ -72,7 +45,8 @@ static SDL_Texture* makeText(SDL_Renderer* renderer, TTF_Font* font, const std::
 }
 
 static void drawText(SDL_Renderer* renderer, TTF_Font* font, int x, int y, const std::string& text, SDL_Color color) {
-    int w = 0, h = 0;
+    int w = 0;
+    int h = 0;
     SDL_Texture* tex = makeText(renderer, font, text, color, w, h);
     if (!tex) return;
 
@@ -81,195 +55,253 @@ static void drawText(SDL_Renderer* renderer, TTF_Font* font, int x, int y, const
     SDL_DestroyTexture(tex);
 }
 
-static void handleKey(SDL_Keycode key, AppState& app, light::LightEngine& engine) {
+static light::Rgb sampleCanvasColor(float u, float v, const light::LightEngine& engine) {
+    const light::Rgb* canvas = engine.canvas();
+    const int cw = engine.canvasWidth();
+    const int ch = engine.canvasHeight();
+
+    if (!canvas || cw <= 0 || ch <= 0) {
+        return light::Rgb(0, 0, 0);
+    }
+
+    int x = static_cast<int>(u * static_cast<float>(cw - 1));
+    int y = static_cast<int>(v * static_cast<float>(ch - 1));
+
+    if (x < 0) x = 0;
+    if (x >= cw) x = cw - 1;
+    if (y < 0) y = 0;
+    if (y >= ch) y = ch - 1;
+
+    return canvas[y * cw + x];
+}
+
+static int canvasPixelX(float u, const light::LightEngine& engine) {
+    const int cw = engine.canvasWidth();
+    const int ch = engine.canvasHeight();
+    const int cellW = kCanvasW / cw;
+    const int cellH = kCanvasH / ch;
+    const int cell = (cellW < cellH) ? cellW : cellH;
+    const int drawW = cell * cw;
+    const int offsetX = kCanvasX + (kCanvasW - drawW) / 2;
+    return offsetX + static_cast<int>(u * (drawW - 1));
+}
+
+static int canvasPixelY(float v, const light::LightEngine& engine) {
+    const int cw = engine.canvasWidth();
+    const int ch = engine.canvasHeight();
+    const int cellW = kCanvasW / cw;
+    const int cellH = kCanvasH / ch;
+    const int cell = (cellW < cellH) ? cellW : cellH;
+    const int drawH = cell * ch;
+    const int offsetY = kCanvasY + (kCanvasH - drawH) / 2;
+    return offsetY + static_cast<int>(v * (drawH - 1));
+}
+
+static void triggerEvent(light::LightController& controller,
+                         AppState& app,
+                         const std::string& eventName,
+                         uint32_t nowMs) {
+    controller.trigger(eventName, nowMs);
+    app.currentEvent = eventName;
+}
+
+static void handleKey(SDL_Keycode key,
+                      AppState& app,
+                      light::LightController& controller,
+                      uint32_t nowMs) {
     switch (key) {
         case SDLK_ESCAPE:
             app.running = false;
             break;
-
         case SDLK_h:
             app.showHelp = !app.showHelp;
             break;
-
-        case SDLK_a:
-            app.manualMode = false;
-            engine.setMode(light::EngineMode::Animation);
-            app.currentEvent = "Animation";
-            break;
-
-        case SDLK_m:
-            app.manualMode = true;
-            engine.setMode(light::EngineMode::Manual);
-            app.currentEvent = "Manual";
-            break;
-
         case SDLK_1:
-            engine.handleEvent(light::LightEvent::Idle);
-            app.manualMode = false;
-            app.currentEvent = "Idle";
+            triggerEvent(controller, app, "idle", nowMs);
             break;
-
         case SDLK_2:
         case SDLK_SPACE:
-            engine.handleEvent(light::LightEvent::Fire);
-            app.manualMode = false;
-            app.currentEvent = "Fire";
+            triggerEvent(controller, app, "fire", nowMs);
             break;
-
         case SDLK_3:
-            engine.handleEvent(light::LightEvent::Reload);
-            app.manualMode = false;
-            app.currentEvent = "Reload";
+            triggerEvent(controller, app, "burst_fire", nowMs);
             break;
-
         case SDLK_4:
-            engine.handleEvent(light::LightEvent::Hit);
-            app.manualMode = false;
-            app.currentEvent = "Hit";
+            triggerEvent(controller, app, "reload_start", nowMs);
             break;
-
         case SDLK_5:
-            engine.handleEvent(light::LightEvent::ChargeStart);
-            app.manualMode = false;
-            app.currentEvent = "ChargeStart";
+            triggerEvent(controller, app, "charge_start", nowMs);
             break;
-
         case SDLK_6:
-            engine.handleEvent(light::LightEvent::ChargeStop);
-            app.manualMode = false;
-            app.currentEvent = "ChargeStop";
+            triggerEvent(controller, app, "charge_release", nowMs);
             break;
-
-        case SDLK_c:
-            engine.clearManual();
-            app.currentEvent = "Clear";
+        case SDLK_7:
+            triggerEvent(controller, app, "overheat", nowMs);
             break;
-
-        case SDLK_LEFT:
-            app.cursorU -= 0.03f;
-            if (app.cursorU < 0.0f) app.cursorU = 0.0f;
-            engine.setCursor(app.cursorU, app.cursorV);
+        case SDLK_8:
+            triggerEvent(controller, app, "empty", nowMs);
             break;
-
-        case SDLK_RIGHT:
-            app.cursorU += 0.03f;
-            if (app.cursorU > 1.0f) app.cursorU = 1.0f;
-            engine.setCursor(app.cursorU, app.cursorV);
+        case SDLK_9:
+            triggerEvent(controller, app, "reload_complete", nowMs);
             break;
-
-        case SDLK_UP:
-            app.cursorV -= 0.03f;
-            if (app.cursorV < 0.0f) app.cursorV = 0.0f;
-            engine.setCursor(app.cursorU, app.cursorV);
-            break;
-
-        case SDLK_DOWN:
-            app.cursorV += 0.03f;
-            if (app.cursorV > 1.0f) app.cursorV = 1.0f;
-            engine.setCursor(app.cursorU, app.cursorV);
-            break;
-
-        case SDLK_q:
-            if (app.manualMode) engine.setManualPixel(0, light::Rgb(255, 0, 0));
-            break;
-
-        case SDLK_w:
-            if (app.manualMode) engine.setManualPixel(1, light::Rgb(0, 255, 0));
-            break;
-
-        case SDLK_e:
-            if (app.manualMode) engine.setManualPixel(2, light::Rgb(0, 0, 255));
-            break;
-
         default:
             break;
     }
 }
 
-static void drawCanvas(SDL_Renderer* renderer, const light::LightEngine& engine, uint32_t nowMs, const AppState& app) {
+static void drawCanvas(SDL_Renderer* renderer, const light::LightEngine& engine) {
     SDL_Rect area{kCanvasX, kCanvasY, kCanvasW, kCanvasH};
 
     SDL_SetRenderDrawColor(renderer, 18, 18, 22, 255);
     SDL_RenderFillRect(renderer, &area);
 
-    const int cell = 8;
-    for (int y = 0; y < kCanvasH; y += cell) {
-        for (int x = 0; x < kCanvasW; x += cell) {
-            float u = static_cast<float>(x) / static_cast<float>(kCanvasW - 1);
-            float v = static_cast<float>(y) / static_cast<float>(kCanvasH - 1);
-            light::Rgb c = sampleCanvasColor(u, v, engine, nowMs);
+    const int cw = engine.canvasWidth();
+    const int ch = engine.canvasHeight();
+
+    const int cellW = kCanvasW / cw;
+    const int cellH = kCanvasH / ch;
+    const int cell = (cellW < cellH) ? cellW : cellH;
+
+    const int drawW = cell * cw;
+    const int drawH = cell * ch;
+    const int offsetX = kCanvasX + (kCanvasW - drawW) / 2;
+    const int offsetY = kCanvasY + (kCanvasH - drawH) / 2;
+
+    for (int y = 0; y < ch; ++y) {
+        for (int x = 0; x < cw; ++x) {
+            const float u = static_cast<float>(x) / static_cast<float>(cw - 1);
+            const float v = static_cast<float>(y) / static_cast<float>(ch - 1);
+            const light::Rgb c = sampleCanvasColor(u, v, engine);
             setColor(renderer, c);
-            SDL_Rect r{kCanvasX + x, kCanvasY + y, cell, cell};
+
+            SDL_Rect r{
+                offsetX + x * cell,
+                offsetY + y * cell,
+                cell,
+                cell
+            };
             SDL_RenderFillRect(renderer, &r);
         }
     }
 
     SDL_SetRenderDrawColor(renderer, 220, 220, 220, 255);
     SDL_RenderDrawRect(renderer, &area);
-
-    int cx = kCanvasX + static_cast<int>(app.cursorU * kCanvasW);
-    int cy = kCanvasY + static_cast<int>(app.cursorV * kCanvasH);
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-    SDL_RenderDrawLine(renderer, cx - 10, cy, cx + 10, cy);
-    SDL_RenderDrawLine(renderer, cx, cy - 10, cx, cy + 10);
 }
 
-static void drawLeds(SDL_Renderer* renderer, const light::LightEngine& engine) {
+static void drawLedsOnCanvas(SDL_Renderer* renderer,
+                             TTF_Font* font,
+                             const light::LightEngine& engine) {
     const light::LayoutView layout = light::circuitPlaygroundRingLayout();
     const light::Rgb* pixels = engine.pixels();
     const int count = static_cast<int>(engine.pixelCount());
+    const int ledRadius = 10;
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
     for (int i = 0; i < count; ++i) {
-        float u = layout.points[i].u;
-        float v = layout.points[i].v;
+        const float u = layout.points[i].u;
+        const float v = layout.points[i].v;
 
-        int x = kLedPanelX + static_cast<int>((1.0f - u) * 180.0f);
-        int y = kLedPanelY + static_cast<int>((1.0f - v) * 180.0f);
+        const int x = canvasPixelX(u, engine);
+        const int y = canvasPixelY(v, engine);
+        const light::Rgb c = pixels[i];
 
-        light::Rgb c = pixels[i];
-        setColor(renderer, c);
-
-        for (int dy = -kLedRadius; dy <= kLedRadius; ++dy) {
-            for (int dx = -kLedRadius; dx <= kLedRadius; ++dx) {
-                if (dx * dx + dy * dy <= kLedRadius * kLedRadius) {
+        SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, 190);
+        for (int dy = -ledRadius; dy <= ledRadius; ++dy) {
+            for (int dx = -ledRadius; dx <= ledRadius; ++dx) {
+                if (dx * dx + dy * dy <= ledRadius * ledRadius) {
                     SDL_RenderDrawPoint(renderer, x + dx, y + dy);
                 }
             }
         }
 
-        SDL_SetRenderDrawColor(renderer, 220, 220, 220, 255);
-        for (int dy = -kLedRadius; dy <= kLedRadius; ++dy) {
-            for (int dx = -kLedRadius; dx <= kLedRadius; ++dx) {
-                int d2 = dx * dx + dy * dy;
-                if (d2 <= kLedRadius * kLedRadius && d2 >= (kLedRadius - 1) * (kLedRadius - 1)) {
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+        for (int dy = -ledRadius; dy <= ledRadius; ++dy) {
+            for (int dx = -ledRadius; dx <= ledRadius; ++dx) {
+                const int d2 = dx * dx + dy * dy;
+                if (d2 <= ledRadius * ledRadius &&
+                    d2 >= (ledRadius - 1) * (ledRadius - 1)) {
                     SDL_RenderDrawPoint(renderer, x + dx, y + dy);
                 }
             }
         }
+
+        drawText(renderer, font, x + 12, y - 8, std::to_string(i), SDL_Color{255, 255, 255, 255});
+    }
+}
+
+static void drawLedPanel(SDL_Renderer* renderer,
+                         TTF_Font* font,
+                         const light::LightEngine& engine) {
+    const light::LayoutView layout = light::circuitPlaygroundRingLayout();
+    const light::Rgb* pixels = engine.pixels();
+    const int count = static_cast<int>(engine.pixelCount());
+    const int ledRadius = 18;
+
+    const int panelX = 700;
+    const int panelY = 20;
+    const int panelW = 260;
+    const int panelH = 220;
+    const int previewX = 735;
+    const int previewY = 55;
+    const int previewW = 150;
+    const int previewH = 150;
+
+    SDL_Rect panel{panelX, panelY, panelW, panelH};
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 170);
+    SDL_RenderFillRect(renderer, &panel);
+    SDL_SetRenderDrawColor(renderer, 90, 90, 90, 255);
+    SDL_RenderDrawRect(renderer, &panel);
+    drawText(renderer, font, panelX + 15, panelY + 10, "LED Preview", SDL_Color{240, 240, 240, 255});
+
+    for (int i = 0; i < count; ++i) {
+        const float u = layout.points[i].u;
+        const float v = layout.points[i].v;
+        const int x = previewX + static_cast<int>(u * previewW);
+        const int y = previewY + static_cast<int>(v * previewH);
+        const light::Rgb c = pixels[i];
+
+        SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, 220);
+        for (int dy = -ledRadius; dy <= ledRadius; ++dy) {
+            for (int dx = -ledRadius; dx <= ledRadius; ++dx) {
+                if (dx * dx + dy * dy <= ledRadius * ledRadius) {
+                    SDL_RenderDrawPoint(renderer, x + dx, y + dy);
+                }
+            }
+        }
+
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+        for (int dy = -ledRadius; dy <= ledRadius; ++dy) {
+            for (int dx = -ledRadius; dx <= ledRadius; ++dx) {
+                const int d2 = dx * dx + dy * dy;
+                if (d2 <= ledRadius * ledRadius &&
+                    d2 >= (ledRadius - 1) * (ledRadius - 1)) {
+                    SDL_RenderDrawPoint(renderer, x + dx, y + dy);
+                }
+            }
+        }
+
+        drawText(renderer, font, x + 22, y - 8, std::to_string(i), SDL_Color{255, 255, 255, 255});
     }
 }
 
 static void drawOverlay(SDL_Renderer* renderer, TTF_Font* font, const AppState& app) {
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
-    SDL_Rect status{20, 530, 700, 90};
+    SDL_Rect status{20, 690, 700, 90};
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 170);
     SDL_RenderFillRect(renderer, &status);
     SDL_SetRenderDrawColor(renderer, 90, 90, 90, 255);
     SDL_RenderDrawRect(renderer, &status);
 
     SDL_Color white{240, 240, 240, 255};
-    char buf[128];
-    std::snprintf(buf, sizeof(buf), "Mode: %s   Event: %s   Cursor: (%.2f, %.2f)",
-                  app.manualMode ? "Manual" : "Animation",
-                  app.currentEvent.c_str(),
-                  app.cursorU, app.cursorV);
-    drawText(renderer, font, 32, 545, buf, white);
-    drawText(renderer, font, 32, 575, "Press H to toggle help", white);
+    drawText(renderer, font, 32, 705, "Current event: " + app.currentEvent, white);
+    drawText(renderer, font, 32, 735, "1 idle  2 fire  3 burst  4 reload  5 charge  6 release  7 overheat  8 empty  9 reload_complete  H help", white);
 
     if (!app.showHelp) return;
 
-    SDL_Rect help{730, 260, 245, 250};
+    SDL_Rect help{730, 260, 245, 220};
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 180);
     SDL_RenderFillRect(renderer, &help);
     SDL_SetRenderDrawColor(renderer, 90, 90, 90, 255);
@@ -277,16 +309,14 @@ static void drawOverlay(SDL_Renderer* renderer, TTF_Font* font, const AppState& 
 
     std::vector<std::string> lines = {
         "1 Idle",
-        "2 / Space Fire",
-        "3 Reload",
-        "4 Hit",
+        "2 Fire",
+        "3 Burst Fire",
+        "4 Reload Start",
         "5 Charge Start",
-        "6 Charge Stop",
-        "A Animation Mode",
-        "M Manual Mode",
-        "C Clear Manual",
-        "Q/W/E Set LEDs 0/1/2",
-        "Arrows Move Cursor",
+        "6 Charge Release",
+        "7 Overheat",
+        "8 Empty",
+        "9 Reload Complete",
         "H Toggle Help",
         "Esc Quit"
     };
@@ -347,12 +377,28 @@ int main(int, char**) {
         return 1;
     }
 
+    light::LightProfile profile;
+    std::string error;
+    if (!light::LightProfileLoader::loadFromFile("assets/lights/muzzle_lights.json", profile, error)) {
+        std::fprintf(stderr, "Failed to load light profile: %s\n", error.c_str());
+        TTF_CloseFont(font);
+        SDL_DestroyRenderer(renderer);
+        SDL_DestroyWindow(window);
+        TTF_Quit();
+        SDL_Quit();
+        return 1;
+    }
+
     light::LightEngine engine;
     light::LayoutView layout = light::circuitPlaygroundRingLayout();
     engine.setLayout(layout.points, layout.count);
-    engine.handleEvent(light::LightEvent::Idle);
+
+    light::LightController controller;
+    controller.bindEngine(&engine);
+    controller.setProfile(&profile);
 
     AppState app;
+    triggerEvent(controller, app, "idle", 0);
 
     while (app.running) {
         SDL_Event event;
@@ -360,18 +406,19 @@ int main(int, char**) {
             if (event.type == SDL_QUIT) {
                 app.running = false;
             } else if (event.type == SDL_KEYDOWN) {
-                handleKey(event.key.keysym.sym, app, engine);
+                handleKey(event.key.keysym.sym, app, controller, SDL_GetTicks());
             }
         }
 
-        uint32_t nowMs = SDL_GetTicks();
-        engine.update(nowMs);
+        const uint32_t nowMs = SDL_GetTicks();
+        controller.update(nowMs);
 
         SDL_SetRenderDrawColor(renderer, 28, 28, 34, 255);
         SDL_RenderClear(renderer);
 
-        drawCanvas(renderer, engine, nowMs, app);
-        drawLeds(renderer, engine);
+        drawCanvas(renderer, engine);
+        drawLedsOnCanvas(renderer, font, engine);
+        drawLedPanel(renderer, font, engine);
         drawOverlay(renderer, font, app);
 
         SDL_RenderPresent(renderer);
