@@ -27,6 +27,7 @@ struct AppState {
     bool running = true;
     bool showHelp = true;
     std::string currentEvent = "idle";
+    bool spaceHeld = false;
 };
 
 static void setColor(SDL_Renderer* renderer, const light::Rgb& c) {
@@ -113,6 +114,18 @@ static void handleKey(SDL_Keycode key,
         case SDLK_ESCAPE:
             app.running = false;
             break;
+        case SDLK_SPACE:
+            if (!app.spaceHeld) {
+                app.spaceHeld = true;
+                std::printf("SPACE DOWN -> charge_start\n");
+                triggerEvent(controller, app, "charge_start", SDL_GetTicks());
+            }
+            if (app.spaceHeld) {
+                app.spaceHeld = false;
+                std::printf("SPACE UP -> charge_release\n");
+                triggerEvent(controller, app, "charge_release", SDL_GetTicks());
+            }
+
         case SDLK_h:
             app.showHelp = !app.showHelp;
             break;
@@ -120,7 +133,6 @@ static void handleKey(SDL_Keycode key,
             triggerEvent(controller, app, "idle", nowMs);
             break;
         case SDLK_2:
-        case SDLK_SPACE:
             triggerEvent(controller, app, "fire", nowMs);
             break;
         case SDLK_3:
@@ -297,11 +309,11 @@ static void drawOverlay(SDL_Renderer* renderer, TTF_Font* font, const AppState& 
 
     SDL_Color white{240, 240, 240, 255};
     drawText(renderer, font, 32, 705, "Current event: " + app.currentEvent, white);
-    drawText(renderer, font, 32, 735, "1 idle  2 fire  3 burst  4 reload  5 charge  6 release  7 overheat  8 empty  9 reload_complete  H help", white);
+    drawText(renderer, font, 32, 735, "1 idle  2 fire  3 burst  4 reload  5 charge  6 release  7 overheat  8 empty  9 reload_complete  Hold Space = charge, release = shot, H help", white);
 
     if (!app.showHelp) return;
 
-    SDL_Rect help{730, 260, 245, 220};
+    SDL_Rect help{730, 260, 245, 240};
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 180);
     SDL_RenderFillRect(renderer, &help);
     SDL_SetRenderDrawColor(renderer, 90, 90, 90, 255);
@@ -317,6 +329,8 @@ static void drawOverlay(SDL_Renderer* renderer, TTF_Font* font, const AppState& 
         "7 Overheat",
         "8 Empty",
         "9 Reload Complete",
+        "Hold Space = Charge",
+        "Release Space = Shot",
         "H Toggle Help",
         "Esc Quit"
     };
@@ -406,7 +420,25 @@ int main(int, char**) {
             if (event.type == SDL_QUIT) {
                 app.running = false;
             } else if (event.type == SDL_KEYDOWN) {
-                handleKey(event.key.keysym.sym, app, controller, SDL_GetTicks());
+                const SDL_Keycode key = event.key.keysym.sym;
+
+                if (key == SDLK_SPACE) {
+                    if (!app.spaceHeld) {
+                        app.spaceHeld = true;
+                        triggerEvent(controller, app, "charge_start", SDL_GetTicks());
+                    }
+                } else if (event.key.repeat == 0) {
+                    handleKey(key, app, controller, SDL_GetTicks());
+                }
+            } else if (event.type == SDL_KEYUP) {
+                const SDL_Keycode key = event.key.keysym.sym;
+
+                if (key == SDLK_SPACE) {
+                    if (app.spaceHeld) {
+                        app.spaceHeld = false;
+                        triggerEvent(controller, app, "charge_release", SDL_GetTicks());
+                    }
+                }
             }
         }
 
