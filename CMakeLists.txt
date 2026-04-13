@@ -4,14 +4,7 @@ project(light_profile_project LANGUAGES CXX)
 find_package(SDL2 REQUIRED)
 find_package(SDL2_ttf REQUIRED)
 
-add_library(light_core
-        lib/light_core/src/Layout.cpp
-        lib/light_core/src/LightEngine.cpp
-)
-target_include_directories(light_core PUBLIC
-        lib/light_core/include
-)
-target_compile_features(light_core PUBLIC cxx_std_17)
+add_subdirectory(lib/light_core)
 
 add_library(light_profile
         lib/light_profile/src/MiniJson.cpp
@@ -33,6 +26,8 @@ target_compile_features(light_console_demo PRIVATE cxx_std_17)
 
 add_executable(desktop_light_sim
         tools/desktop_sim/src/main.cpp
+        lib/light_core/src/LayoutData.cpp
+        lib/light_core/include/light/LayoutData.h
 )
 target_link_libraries(desktop_light_sim PRIVATE
         light_profile

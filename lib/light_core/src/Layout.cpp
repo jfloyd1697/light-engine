@@ -1,5 +1,5 @@
 #include "light/Layout.h"
-#include <math.h>
+#include <cmath>
 
 namespace light {
 
@@ -18,13 +18,14 @@ static void initCpxRing() {
         const float angle = (-3.1415926f / 2.0f) + (2.0f * 3.1415926f * i / 10.0f);
         const float u = cx + cosf(angle) * r;
         const float v = cy + sinf(angle) * r;
-        kCpxRing[i] = LedPoint(static_cast<uint16_t>(i), u, v, 1.0f);
+        const float ledRadius = 18.0f;
+        kCpxRing[i] = LedPoint(static_cast<uint16_t>(i), u, v, ledRadius);
     }
 }
 
 LayoutView circuitPlaygroundRingLayout() {
     initCpxRing();
-    return LayoutView(kCpxRing, 10);
+    return {kCpxRing, 10};
 }
 
 }

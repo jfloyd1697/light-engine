@@ -9,6 +9,7 @@
 #include "light/LightProfileLoader.h"
 #include "light/LightEngine.h"
 #include "light/Layout.h"
+#include "light/LayoutData.h"
 
 namespace {
 
@@ -202,17 +203,18 @@ static void drawCanvas(SDL_Renderer* renderer, const light::LightEngine& engine)
 
 static void drawLedsOnCanvas(SDL_Renderer* renderer,
                              TTF_Font* font,
-                             const light::LightEngine& engine) {
-    const light::LayoutView layout = light::circuitPlaygroundRingLayout();
+                             const light::LightEngine& engine,
+                             const LayoutView& layout
+                             ) {
     const light::Rgb* pixels = engine.pixels();
     const int count = static_cast<int>(engine.pixelCount());
-    const int ledRadius = 10;
 
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
     for (int i = 0; i < count; ++i) {
         const float u = layout.points[i].u;
         const float v = layout.points[i].v;
+        const float ledRadius = 1000.0f * layout.points[i].ledRadius;
 
         const int x = canvasPixelX(u, engine);
         const int y = canvasPixelY(v, engine);
@@ -244,11 +246,11 @@ static void drawLedsOnCanvas(SDL_Renderer* renderer,
 
 static void drawLedPanel(SDL_Renderer* renderer,
                          TTF_Font* font,
-                         const light::LightEngine& engine) {
-    const light::LayoutView layout = light::circuitPlaygroundRingLayout();
+                         const light::LightEngine& engine,
+                         const LayoutView& layout
+                         ) {
     const light::Rgb* pixels = engine.pixels();
     const int count = static_cast<int>(engine.pixelCount());
-    const int ledRadius = 18;
 
     const int panelX = 700;
     const int panelY = 20;
@@ -272,6 +274,7 @@ static void drawLedPanel(SDL_Renderer* renderer,
         const float v = layout.points[i].v;
         const int x = previewX + static_cast<int>(u * previewW);
         const int y = previewY + static_cast<int>(v * previewH);
+        const float ledRadius = layout.points[i].ledRadius * previewW;
         const light::Rgb c = pixels[i];
 
         SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, 220);
@@ -403,8 +406,17 @@ int main(int, char**) {
         return 1;
     }
 
+    LayoutData layout_data;
+
+    if (!layout_data.loadFromFile("assets/lights/ring_layout.json", &error)) {
+        std::cerr << "Failed to load layout: " << error << "\n";
+        return 1;
+    }
+
+    LayoutView layout = layout_data.view();
+    debugPrintLayoutView(layout);
+
     light::LightEngine engine;
-    light::LayoutView layout = light::circuitPlaygroundRingLayout();
     engine.setLayout(layout.points, layout.count);
 
     light::LightController controller;
@@ -449,8 +461,8 @@ int main(int, char**) {
         SDL_RenderClear(renderer);
 
         drawCanvas(renderer, engine);
-        drawLedsOnCanvas(renderer, font, engine);
-        drawLedPanel(renderer, font, engine);
+        drawLedsOnCanvas(renderer, font, engine, layout);
+        drawLedPanel(renderer, font, engine, layout);
         drawOverlay(renderer, font, app);
 
         SDL_RenderPresent(renderer);

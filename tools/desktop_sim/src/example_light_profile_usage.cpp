@@ -5,7 +5,7 @@
 int main() {
     light::LightProfile profile;
     std::string error;
-    if (!light::LightProfileLoader::loadFromFile("assets/lights/muzzle_lights.json", profile, error)) {
+    if (!light::LightProfileLoader::loadFromFile("assets/lighmuzzle_lights.json", profile, error)) {
         std::cerr << "Failed to load light profile: " << error << "\n";
         return 1;
     }

@@ -58,7 +58,7 @@ void LightEngine::mapCanvasToPixels() {
             continue;
         }
         const LedPoint& p = m_layout[i];
-        m_pixels[i] = scale(sampleCanvas(p.u, p.v), p.brightnessScale);
+        m_pixels[i] = scale(sampleCanvas(p.u, p.v), 1.0f);
     }
 }
 
